@@ -1,0 +1,17 @@
+# vs code
+.vscode
+
+# ros1
+build/
+devel/
+install/
+log/
+logs/
+test_results/
+test_results_*/
+
+# catkin
+.catkin_tools/
+
+# Symbolic Link
+/CMakeLists.txt
