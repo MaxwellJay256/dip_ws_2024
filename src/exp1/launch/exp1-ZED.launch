@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<launch>
+    <include file="$(find dashgo_driver)/launch/driver_imu.launch"/>
+    <node name="exp1_node" pkg="exp1" type="exp1"/>
+</launch>
