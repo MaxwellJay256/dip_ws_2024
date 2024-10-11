@@ -1,6 +1,5 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(exp2)
-
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -11,11 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 )
 
-
 find_package(OpenCV REQUIRED)
-
-
-
 catkin_package()
 
 include_directories(
@@ -26,6 +21,6 @@ include_directories(
 add_executable(exp2 src/exp2.cpp)
 
 target_link_libraries(exp2
-${catkin_LIBRARIES}
-${OpenCV_LIBRARIES}
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
 )

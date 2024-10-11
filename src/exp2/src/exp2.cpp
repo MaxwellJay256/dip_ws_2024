@@ -10,6 +10,7 @@
 #include "sensor_msgs/Image.h"
 #include <math.h>
 #include <cv_bridge/cv_bridge.h>
+#include "exp2.h"
 
 enum CameraState
 {
@@ -21,31 +22,58 @@ CameraState state = COMPUTER;
 #define pi 3.1415926
 using namespace cv;
 
-//空域均值滤波函数
+/// @brief 空域均值滤波函数
 void meanFilter(Mat &input)
 {
-
     //生成模板
-    int T_size = 9; 
-    //int T_size = 3;                                   // 模板大小
+    int T_size = 3; // 模板大小, 3 or 9
     Mat Template = Mat::zeros(T_size, T_size, CV_64F); // 初始化模板矩阵
-    /*** 第一步：在此处填充均值滤波模板 ***/
-
+    /*** 第 1 步：在此处填充均值滤波模板 ***/
+    for (int i = 0; i < T_size; i++)
+    {
+        for (int j = 0; j < T_size; j++)
+        {
+            Template.at<double>(i, j) = 1.0 / (T_size * T_size);
+        }
+    }
 
     // 卷积
     Mat output = Mat::zeros(input.size(), CV_64F);
 
-    /*** 第二步：填充模板与输入图像的卷积代码 ***/    
-
-
+    /*** 第 2 步：填充模板与输入图像的卷积代码 ***/
+    convolve(T_size, input, Template, output);
 
     output.convertTo(output, CV_8UC1);
     imshow("mean_filtered_image", output);
 }
-// 空域高斯滤波器函数
+
+/// @brief 自定义卷积运算
+/// @param input 输入矩阵
+/// @param kernel 卷积核
+/// @param output 输出矩阵
+void convolve(cv::Mat &input, cv::Mat &kernel, cv::Mat &output)
+{
+    int pad = kernel.rows / 2; // 填充大小
+    Mat paddedInput;
+    copyMakeBorder(input, paddedInput, pad, pad, pad, pad, BORDER_REPLICATE);
+    for (int i = pad; i < paddedInput.rows - pad; i++)
+    {
+        for (int j = pad; j < paddedInput.cols; j++)
+        {
+            double sum = 0;
+            for (int m = -pad; m <= pad; m++)
+            {
+                for (int n = -pad; n <= pad; n++)
+                    sum += paddedInput.at<double>(i + m, j + n) * kernel.at<double>(pad + m, pad + n);
+            }
+            output.at<double>(i - pad, j - pad) = sum;
+        }
+    }
+}
+
+/// @brief 空域高斯滤波器函数
 void gaussianFilter(Mat &input, double sigma)
 {
-
     //利用高斯函数生成模板
     int T_size = 9;                                    // 模板大小
     Mat Template = Mat::zeros(T_size, T_size, CV_64F); // 初始化模板矩阵
@@ -56,79 +84,133 @@ void gaussianFilter(Mat &input, double sigma)
     {
         for (int j = 0; j < T_size; j++)
         {
-
-            /*** 第三步：在此处填充高斯滤波模板元素计算代码 ***/
-
+            /*** 第 3 步：在此处填充高斯滤波模板元素计算代码 ***/
+            Template.at<double>(i, j) =
+                exp(-(pow(i - center, 2) + pow(j - center, 2)) / (2 * pow(sigma, 2))) / (2 * pi * pow(sigma, 2));            
             
-            
-            sum += Template.at<double>(i, j); //用于归一化模板元素
+            sum += Template.at<double>(i, j); // 用于归一化模板元素
         }
     }
-
 
     for (int i = 0; i < T_size; i++)
     {
         for (int j = 0; j < T_size; j++)
         {
-
-            /*** 第四步：在此处填充模板归一化代码 ***/
-
+            /*** 第 4 步：在此处填充模板归一化代码 ***/
+            Template.at<double>(i, j) /= sum;
         }
     }
     // 卷积
     Mat output = Mat::zeros(input.size(), CV_64F);
 
-    /*** 第五步：同第二步，填充模板与输入图像的卷积代码 ***/ 
-
-
-
-
+    /*** 第 5 步：同第 2 步，填充模板与输入图像的卷积代码 ***/
+    convolve(input, Template, output);
 
     output.convertTo(output, CV_8UC1);
     imshow("spatial_filtered_image", output);
 }
-// 锐化空域滤波
+
+/// @brief 锐化空域滤波
 void sharpenFilter(Mat &input)
 {
-
     //生成模板
     int T_size = 3;                                    // 模板大小
     Mat Template = Mat::zeros(T_size, T_size, CV_64F); // 初始化模板矩阵
-    /*** 第六步：填充锐化滤波模板 ***/   
+    /*** 第六步：填充锐化滤波模板 ***/
+    // 0 -1 0
+    // -1 5 -1
+    // 0 -1 0
+    Template.at<double>(0, 0) = 0;
+    Template.at<double>(0, 1) = -1;
+    Template.at<double>(0, 2) = 0;
+    Template.at<double>(1, 0) = -1;
+    Template.at<double>(1, 1) = 5;
+    Template.at<double>(1, 2) = -1;
+    Template.at<double>(2, 0) = 0;
+    Template.at<double>(2, 1) = -1;
+    Template.at<double>(2, 2) = 0;
 
     // 卷积
     Mat output = Mat::zeros(input.size(), CV_64F);
 
-    /*** 第七步：同第二步，填充模板与输入图像的卷积代码 ***/    
-
-
-
+    /*** 第 7 步：同第 2 步，填充模板与输入图像的卷积代码 ***/
+    convolve(input, Template, output);
 
     output.convertTo(output, CV_8UC1);
     imshow("sharpen_filtered_image", output);
 }
-// 膨胀函数
+
+/// @brief 膨胀函数
 void Dilate(Mat &Src)
 {
-    Mat Dst = Src.clone();
+    // 二值化
+    Mat binary;
+    threshold(Src, binary, 128, 255, THRESH_BINARY);
+    Mat Dst = binary.clone();
     Dst.convertTo(Dst, CV_64F);
 
-    /*** 第八步：填充膨胀代码 ***/    
+    /*** 第 8 步：填充膨胀代码 ***/
+    int T_size = 3; // 模板大小
+    Mat Template = Mat::ones(T_size, T_size, CV_64F); // 初始化模板矩阵
+    int center = round(T_size / 2);                    // 模板中心位置
 
-
+    for (int i = center; i < Src.rows - center; i++)
+    {
+        for (int j = center; j < Src.cols - center; j++)
+        {
+            double max = 0;
+            for (int m = 0; m < T_size; m++)
+            {
+                for (int n = 0; n < T_size; n++)
+                {
+                    if (Template.at<double>(m, n) == 1)
+                    {
+                        if (Src.at<double>(i + m - center, j + n - center) > max)
+                            max = Src.at<double>(i + m - center, j + n - center);
+                    }
+                }
+            }
+            Dst.at<double>(i, j) = max;
+        }
+    }
 
     Dst.convertTo(Dst, CV_8UC1);
     imshow("dilate", Dst);
 }
-// 腐蚀函数
+
+/// @brief 腐蚀函数
 void Erode(Mat &Src)
 {
-    Mat Dst = Src.clone();
+    // 二值化
+    Mat binary;
+    threshold(Src, binary, 128, 255, THRESH_BINARY);
+    Mat Dst = binary.clone();
     Dst.convertTo(Dst, CV_64F);
 
-    /*** 第九步：填充腐蚀代码 ***/    
+    /*** 第 9 步：填充腐蚀代码 ***/
+    int T_size = 3; // 模板大小
+    Mat Template = Mat::ones(T_size, T_size, CV_64F); // 初始化模板矩阵
+    int center = round(T_size / 2);                    // 模板中心位置
 
-
+    for (int i = center; i < Src.rows - center; i++)
+    {
+        for (int j = center; j < Src.cols - center; j++)
+        {
+            double min = 255;
+            for (int m = 0; m < T_size; m++)
+            {
+                for (int n = 0; n < T_size; n++)
+                {
+                    if (Template.at<double>(m, n) == 1)
+                    {
+                        if (Src.at<double>(i + m - center, j + n - center) < min)
+                            min = Src.at<double>(i + m - center, j + n - center);
+                    }
+                }
+            }
+            Dst.at<double>(i, j) = min;
+        }
+    }
 
     Dst.convertTo(Dst, CV_8UC1);
     imshow("erode", Dst);
@@ -172,13 +254,12 @@ int main(int argc, char **argv)
     }
     else if(state == REALSENSE)
     {
-        camera_sub = n.subscribe("/camera/color/image_raw",1,rcvCameraCallBack);
+        camera_sub = n.subscribe("/camera/color/image_raw", 1, rcvCameraCallBack);
     }
 
-    Mat frIn;                                        // 当前帧图片
+    Mat frIn; // 当前帧图片
     while (ros::ok())
     {
-
         if(state == COMPUTER)
         {
             capture.read(frIn);
@@ -209,8 +290,7 @@ int main(int argc, char **argv)
             frIn = frame_msg;
         }
 
-
-        cvtColor(frIn, frIn, COLOR_BGR2GRAY);
+        cvtColor(frIn, frIn, COLOR_BGR2GRAY); // 转换为灰度图
         imshow("original_image", frIn);
         //空域均值滤波
 	    meanFilter(frIn);
