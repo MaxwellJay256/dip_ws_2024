@@ -22,10 +22,9 @@ CameraState state = COMPUTER;
 #define pi 3.1415926
 using namespace cv;
 
-/// @brief 空域均值滤波函数
 void meanFilter(Mat &input)
 {
-    //生成模板
+    // 生成模板
     int T_size = 3; // 模板大小, 3 or 9
     Mat Template = Mat::zeros(T_size, T_size, CV_64F); // 初始化模板矩阵
     /*** 第 1 步：在此处填充均值滤波模板 ***/
@@ -38,19 +37,15 @@ void meanFilter(Mat &input)
     }
 
     // 卷积
-    Mat output = Mat::zeros(input.size(), CV_64F);
+    Mat output = Mat::zeros(input.size(), CV_8UC1);
 
     /*** 第 2 步：填充模板与输入图像的卷积代码 ***/
-    convolve(T_size, input, Template, output);
+    convolve(input, Template, output);
 
     output.convertTo(output, CV_8UC1);
     imshow("mean_filtered_image", output);
 }
 
-/// @brief 自定义卷积运算
-/// @param input 输入矩阵
-/// @param kernel 卷积核
-/// @param output 输出矩阵
 void convolve(cv::Mat &input, cv::Mat &kernel, cv::Mat &output)
 {
     int pad = kernel.rows / 2; // 填充大小
@@ -58,15 +53,15 @@ void convolve(cv::Mat &input, cv::Mat &kernel, cv::Mat &output)
     copyMakeBorder(input, paddedInput, pad, pad, pad, pad, BORDER_REPLICATE);
     for (int i = pad; i < paddedInput.rows - pad; i++)
     {
-        for (int j = pad; j < paddedInput.cols; j++)
+        for (int j = pad; j < paddedInput.cols - pad; j++)
         {
             double sum = 0;
             for (int m = -pad; m <= pad; m++)
             {
                 for (int n = -pad; n <= pad; n++)
-                    sum += paddedInput.at<double>(i + m, j + n) * kernel.at<double>(pad + m, pad + n);
+                    sum += paddedInput.at<uchar>(i + n, j + m) * kernel.at<double>(pad + n, pad + m);
             }
-            output.at<double>(i - pad, j - pad) = sum;
+            output.at<uchar>(i - pad, j - pad) = sum;
         }
     }
 }
@@ -101,7 +96,7 @@ void gaussianFilter(Mat &input, double sigma)
         }
     }
     // 卷积
-    Mat output = Mat::zeros(input.size(), CV_64F);
+    Mat output = Mat::zeros(input.size(), CV_8UC1);
 
     /*** 第 5 步：同第 2 步，填充模板与输入图像的卷积代码 ***/
     convolve(input, Template, output);
@@ -131,7 +126,7 @@ void sharpenFilter(Mat &input)
     Template.at<double>(2, 2) = 0;
 
     // 卷积
-    Mat output = Mat::zeros(input.size(), CV_64F);
+    Mat output = Mat::zeros(input.size(), CV_8UC1);
 
     /*** 第 7 步：同第 2 步，填充模板与输入图像的卷积代码 ***/
     convolve(input, Template, output);
@@ -143,34 +138,32 @@ void sharpenFilter(Mat &input)
 /// @brief 膨胀函数
 void Dilate(Mat &Src)
 {
-    // 二值化
-    Mat binary;
-    threshold(Src, binary, 128, 255, THRESH_BINARY);
-    Mat Dst = binary.clone();
-    Dst.convertTo(Dst, CV_64F);
+    Mat Dst = Src.clone();
+    Dst.convertTo(Dst, CV_8UC1);
+    threshold(Dst, Dst, 128, 255, THRESH_BINARY); // 二值化
 
     /*** 第 8 步：填充膨胀代码 ***/
     int T_size = 3; // 模板大小
-    Mat Template = Mat::ones(T_size, T_size, CV_64F); // 初始化模板矩阵
+    Mat Template = Mat::ones(T_size, T_size, CV_8UC1); // 初始化模板矩阵
     int center = round(T_size / 2);                    // 模板中心位置
 
     for (int i = center; i < Src.rows - center; i++)
     {
         for (int j = center; j < Src.cols - center; j++)
         {
-            double max = 0;
+            int max = 0;
             for (int m = 0; m < T_size; m++)
             {
                 for (int n = 0; n < T_size; n++)
                 {
-                    if (Template.at<double>(m, n) == 1)
+                    if (Template.at<uchar>(m, n) == 1)
                     {
-                        if (Src.at<double>(i + m - center, j + n - center) > max)
-                            max = Src.at<double>(i + m - center, j + n - center);
+                        if (Src.at<uchar>(i + m - center, j + n - center) > max)
+                            max = Src.at<uchar>(i + m - center, j + n - center);
                     }
                 }
             }
-            Dst.at<double>(i, j) = max;
+            Dst.at<uchar>(i, j) = max;
         }
     }
 
@@ -181,34 +174,32 @@ void Dilate(Mat &Src)
 /// @brief 腐蚀函数
 void Erode(Mat &Src)
 {
-    // 二值化
-    Mat binary;
-    threshold(Src, binary, 128, 255, THRESH_BINARY);
-    Mat Dst = binary.clone();
-    Dst.convertTo(Dst, CV_64F);
+    Mat Dst = Src.clone();
+    Dst.convertTo(Dst, CV_8UC1);
+    threshold(Dst, Dst, 128, 255, THRESH_BINARY); // 二值化
 
     /*** 第 9 步：填充腐蚀代码 ***/
     int T_size = 3; // 模板大小
-    Mat Template = Mat::ones(T_size, T_size, CV_64F); // 初始化模板矩阵
+    Mat Template = Mat::ones(T_size, T_size, CV_8UC1); // 初始化模板矩阵
     int center = round(T_size / 2);                    // 模板中心位置
 
     for (int i = center; i < Src.rows - center; i++)
     {
         for (int j = center; j < Src.cols - center; j++)
         {
-            double min = 255;
+            int min = 255;
             for (int m = 0; m < T_size; m++)
             {
                 for (int n = 0; n < T_size; n++)
                 {
-                    if (Template.at<double>(m, n) == 1)
+                    if (Template.at<uchar>(m, n) == 1)
                     {
-                        if (Src.at<double>(i + m - center, j + n - center) < min)
-                            min = Src.at<double>(i + m - center, j + n - center);
+                        if (Src.at<uchar>(i + m - center, j + n - center) < min)
+                            min = Src.at<uchar>(i + m - center, j + n - center);
                     }
                 }
             }
-            Dst.at<double>(i, j) = min;
+            Dst.at<uchar>(i, j) = min;
         }
     }
 
@@ -289,11 +280,11 @@ int main(int argc, char **argv)
             }
             frIn = frame_msg;
         }
-
         cvtColor(frIn, frIn, COLOR_BGR2GRAY); // 转换为灰度图
         imshow("original_image", frIn);
+        
         //空域均值滤波
-	    meanFilter(frIn);
+		meanFilter(frIn);
 	
         // 空域高斯滤波
         double sigma = 2.5;
