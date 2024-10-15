@@ -1,10 +1,14 @@
 #pragma once
+#include "opencv2/highgui/highgui.hpp"
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/core.hpp>
+using namespace cv;
 
 /// @brief 自定义卷积运算
 /// @param input 输入矩阵
 /// @param kernel 卷积核
 /// @param output 输出矩阵
-void convolve(cv::Mat &input, cv::Mat &kernel, cv::Mat &output);
+void convolve(Mat &input, Mat &kernel, Mat &output);
 
 /// @brief 空域均值滤波函数
 /// @param input 输入图像

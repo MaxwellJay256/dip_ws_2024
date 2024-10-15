@@ -1,7 +1,5 @@
 #include <stdlib.h>
-#include "opencv2/highgui/highgui.hpp"
-#include <opencv2/opencv.hpp>
-#include <opencv2/core/core.hpp>
+#include "exp2.h"
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include "std_msgs/Bool.h"
@@ -10,7 +8,6 @@
 #include "sensor_msgs/Image.h"
 #include <math.h>
 #include <cv_bridge/cv_bridge.h>
-#include "exp2.h"
 
 enum CameraState
 {
